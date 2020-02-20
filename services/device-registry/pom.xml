@@ -26,6 +26,7 @@
   <modules>
     <module>device-registry-base</module>
     <module>device-registry-file</module>
+    <module>device-registry-mongodb</module>
   </modules>
 
   <dependencies>
