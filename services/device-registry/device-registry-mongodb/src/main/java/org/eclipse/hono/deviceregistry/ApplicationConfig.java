@@ -25,8 +25,11 @@ import org.eclipse.hono.config.ServiceConfigProperties;
 import org.eclipse.hono.config.VertxProperties;
 import org.eclipse.hono.deviceregistry.config.DeviceRegistrationCommonConfigProperties;
 import org.eclipse.hono.deviceregistry.mongodb.MongoDbConfigProperties;
+import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbBasedTenantsConfigProperties;
+import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbCallExecutor;
 import org.eclipse.hono.deviceregistry.service.device.AutowiredDeviceManagementHttpEndpoint;
 import org.eclipse.hono.deviceregistry.service.deviceConnection.MapBasedDeviceConnectionsConfigProperties;
+import org.eclipse.hono.deviceregistry.service.tenant.AutowiredTenantManagementHttpEndpoint;
 import org.eclipse.hono.service.HealthCheckServer;
 import org.eclipse.hono.service.VertxBasedHealthCheckServer;
 import org.eclipse.hono.service.amqp.AmqpEndpoint;
@@ -37,6 +40,7 @@ import org.eclipse.hono.service.registration.RegistrationAmqpEndpoint;
 import org.eclipse.hono.util.Constants;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,7 +50,6 @@ import java.util.Optional;
 
 /**
  * Spring Boot configuration for the mongodb based device registry application.
- *
  */
 @Configuration
 public class ApplicationConfig {
@@ -57,7 +60,7 @@ public class ApplicationConfig {
      * This method creates new Vert.x default options and invokes
      * {@link VertxProperties#configureVertx(VertxOptions)} on the object returned
      * by {@link #vertxProperties()}.
-     * 
+     *
      * @return The Vert.x instance.
      */
     @Bean
@@ -67,7 +70,7 @@ public class ApplicationConfig {
 
     /**
      * Exposes configuration properties for Vert.x.
-     * 
+     *
      * @return The properties.
      */
     @ConfigurationProperties("hono.vertx")
@@ -82,7 +85,7 @@ public class ApplicationConfig {
      * The Tracer will be resolved by means of a Java service lookup.
      * If no tracer can be resolved this way, the {@code NoopTracer} is
      * returned.
-     * 
+     *
      * @return The tracer.
      */
     @Bean
@@ -99,7 +102,7 @@ public class ApplicationConfig {
      */
     @Bean
     @ConfigurationProperties(prefix = "hono.app")
-    public ApplicationConfigProperties applicationConfigProperties(){
+    public ApplicationConfigProperties applicationConfigProperties() {
         return new ApplicationConfigProperties();
     }
 
@@ -116,7 +119,7 @@ public class ApplicationConfig {
 
     /**
      * Gets properties for configuring the Device Registry's AMQP 1.0 endpoint.
-     * 
+     *
      * @return The properties.
      */
     @Qualifier(Constants.QUALIFIER_AMQP)
@@ -129,7 +132,7 @@ public class ApplicationConfig {
 
     /**
      * Creates a new instance of an AMQP 1.0 protocol handler for Hono's <em>Device Registration</em> API.
-     * 
+     *
      * @return The handler.
      */
     @Bean
@@ -173,7 +176,7 @@ public class ApplicationConfig {
 
     /**
      * Gets properties for configuring the HTTP based Device Registry Management endpoint.
-     * 
+     *
      * @return The properties.
      */
     @Qualifier(Constants.QUALIFIER_REST)
@@ -187,7 +190,7 @@ public class ApplicationConfig {
     /**
      * Creates a new instance of an HTTP protocol handler for the <em>devices</em> resources
      * of Hono's Device Registry Management API's.
-     * 
+     *
      * @return The handler.
      */
     @Bean
@@ -208,17 +211,17 @@ public class ApplicationConfig {
 //        return new AutowiredCredentialsManagementHttpEndpoint(vertx());
 //    }
 
-//    /**
-//     * Creates a new instance of an HTTP protocol handler for the <em>tenants</em> resources
-//     * of Hono's Device Registry Management API's.
-//     *
-//     * @return The handler.
-//     */
-//    @Bean
-//    @Scope("prototype")
-//    public HttpEndpoint tenantHttpEndpoint() {
-//        return new AutowiredTenantManagementHttpEndpoint(vertx());
-//    }
+    /**
+     * Creates a new instance of an HTTP protocol handler for the <em>tenants</em> resources
+     * of Hono's Device Registry Management API's.
+     *
+     * @return The handler.
+     */
+    @Bean
+    @Scope("prototype")
+    public HttpEndpoint tenantHttpEndpoint() {
+        return new AutowiredTenantManagementHttpEndpoint(vertx());
+    }
 
     /**
      * Gets properties for configuring {@code InMemoryDeviceConnectionService} which implements
@@ -257,7 +260,7 @@ public class ApplicationConfig {
 
     /**
      * Customizer for meter registry.
-     * 
+     *
      * @return The new meter registry customizer.
      */
     @Bean
@@ -275,5 +278,27 @@ public class ApplicationConfig {
     @Bean
     public HealthCheckServer healthCheckServer() {
         return new VertxBasedHealthCheckServer(vertx(), healthCheckConfigProperties());
+    }
+
+    /**
+     * Gets properties for the hono tenant mongodb collection.
+     *
+     * @return The properties.
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "hono.tenant.mongodb")
+    public MongoDbBasedTenantsConfigProperties mongoDbTenantsProperties() {
+        return new MongoDbBasedTenantsConfigProperties();
+    }
+
+    /**
+     * Gets a {@link MongoDbCallExecutor} unify mongodb client access.
+     *
+     * @return The properties.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
+    public MongoDbCallExecutor mongoDBCallExecutor() {
+        return new MongoDbCallExecutor(vertx(), mongoDbConfigProperties());
     }
 }

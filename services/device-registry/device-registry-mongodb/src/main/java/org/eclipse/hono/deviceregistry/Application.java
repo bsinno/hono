@@ -13,9 +13,10 @@
 
 package org.eclipse.hono.deviceregistry;
 
-import java.util.LinkedList;
-import java.util.List;
-
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Verticle;
 import org.eclipse.hono.service.AbstractBaseApplication;
 import org.eclipse.hono.service.HealthCheckProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,10 +25,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import io.vertx.core.Verticle;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * A Spring Boot application exposing an AMQP and HTTP based endpoint that implements Hono's device registry.
@@ -53,6 +52,15 @@ public class Application extends AbstractBaseApplication {
      */
     private List<HealthCheckProvider> healthCheckProviders;
 
+    /**
+     * Starts the Device Registry Server.
+     *
+     * @param args command line arguments to pass to the server.
+     */
+    public static void main(final String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+
     @Autowired
     public void setVerticles(final List<Verticle> verticles) {
         this.verticles = verticles;
@@ -68,8 +76,7 @@ public class Application extends AbstractBaseApplication {
 
         return super.deployVerticles().compose(ok -> {
 
-            @SuppressWarnings("rawtypes")
-            final List<Future> futures = new LinkedList<>();
+            @SuppressWarnings("rawtypes") final List<Future> futures = new LinkedList<>();
 
             for (final Verticle verticle : this.verticles) {
                 log.info("Deploying: {}", verticle);
@@ -95,14 +102,5 @@ public class Application extends AbstractBaseApplication {
             this.healthCheckProviders.forEach(this::registerHealthchecks);
             return Future.succeededFuture();
         });
-    }
-
-    /**
-     * Starts the Device Registry Server.
-     *
-     * @param args command line arguments to pass to the server.
-     */
-    public static void main(final String[] args) {
-        SpringApplication.run(Application.class, args);
     }
 }

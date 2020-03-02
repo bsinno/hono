@@ -10,7 +10,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
-package org.eclipse.hono.deviceregistry.mongodb;
+package org.eclipse.hono.deviceregistry.mongodb.services;
 
 import io.opentracing.Span;
 import io.vertx.core.AbstractVerticle;
@@ -40,27 +40,31 @@ import java.util.Optional;
 public class MongoDbBasedCredentialsService extends AbstractVerticle
         implements CredentialsManagementService, CredentialsService {
 
-    @Override public void get(final String tenantId, final String type, final String authId, final Span span,
-            final Handler<AsyncResult<CredentialsResult<JsonObject>>> resultHandler) {
+    @Override
+    public void get(final String tenantId, final String type, final String authId, final Span span,
+                    final Handler<AsyncResult<CredentialsResult<JsonObject>>> resultHandler) {
 
     }
 
-    @Override public void get(final String tenantId, final String type, final String authId,
-            final JsonObject clientContext, final Span span,
-            final Handler<AsyncResult<CredentialsResult<JsonObject>>> resultHandler) {
+    @Override
+    public void get(final String tenantId, final String type, final String authId,
+                    final JsonObject clientContext, final Span span,
+                    final Handler<AsyncResult<CredentialsResult<JsonObject>>> resultHandler) {
 
     }
 
-    @Override public void updateCredentials(final String tenantId, final String deviceId,
-            final List<CommonCredential> credentials,
-            final Optional<String> resourceVersion, final Span span,
-            final Handler<AsyncResult<OperationResult<Void>>> resultHandler) {
+    @Override
+    public void updateCredentials(final String tenantId, final String deviceId,
+                                  final List<CommonCredential> credentials,
+                                  final Optional<String> resourceVersion, final Span span,
+                                  final Handler<AsyncResult<OperationResult<Void>>> resultHandler) {
 
         resultHandler.handle(Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_OK)));
     }
 
-    @Override public void readCredentials(final String tenantId, final String deviceId, final Span span,
-            final Handler<AsyncResult<OperationResult<List<CommonCredential>>>> resultHandler) {
+    @Override
+    public void readCredentials(final String tenantId, final String deviceId, final Span span,
+                                final Handler<AsyncResult<OperationResult<List<CommonCredential>>>> resultHandler) {
 
     }
 }

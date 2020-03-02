@@ -10,10 +10,8 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
-package org.eclipse.hono.deviceregistry.mongodb;
+package org.eclipse.hono.deviceregistry.mongodb.services;
 
-import com.mongodb.ErrorCategory;
-import com.mongodb.MongoException;
 import io.opentracing.Span;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
@@ -23,10 +21,13 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.IndexOptions;
 import io.vertx.ext.mongo.MongoClient;
+import io.vertx.ext.mongo.MongoClientDeleteResult;
 import org.eclipse.hono.deviceregistry.config.DeviceRegistrationCommonConfigProperties;
+import org.eclipse.hono.deviceregistry.mongodb.MongoDbConfigProperties;
 import org.eclipse.hono.deviceregistry.mongodb.model.DeviceDto;
 import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbCallExecutor;
 import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbDocumentBuilder;
+import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbErrorHandler;
 import org.eclipse.hono.deviceregistry.util.DeviceRegistryUtils;
 import org.eclipse.hono.deviceregistry.util.Versioned;
 import org.eclipse.hono.service.management.Id;
@@ -47,8 +48,6 @@ import org.springframework.stereotype.Component;
 
 import java.net.HttpURLConnection;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,7 +67,8 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
     private MongoClient mongoClient;
     private DeviceRegistrationCommonConfigProperties config;
 
-    @Override public void start(final Promise<Void> startPromise) {
+    @Override
+    public void start(final Promise<Void> startPromise) {
         final MongoDbCallExecutor executor = new MongoDbCallExecutor(vertx, mongoDbConfig);
         mongoClient = executor.getMongoClient();
 
@@ -85,7 +85,8 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         });
     }
 
-    @Override public void stop(final Promise<Void> stopPromise) {
+    @Override
+    public void stop(final Promise<Void> stopPromise) {
         mongoClient.close();
         stopPromise.complete();
     }
@@ -99,19 +100,20 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         return mongoDbConfig;
     }
 
+    public DeviceRegistrationCommonConfigProperties getConfig() {
+        return config;
+    }
+
     @Autowired
     public void setConfig(final DeviceRegistrationCommonConfigProperties config) {
         this.config = config;
     }
 
-    public DeviceRegistrationCommonConfigProperties getConfig() {
-        return config;
-    }
-
-    @Override public void createDevice(final String tenantId, final Optional<String> deviceId,
-            final Device device,
-            final Span span,
-            final Handler<AsyncResult<OperationResult<Id>>> resultHandler) {
+    @Override
+    public void createDevice(final String tenantId, final Optional<String> deviceId,
+                             final Device device,
+                             final Span span,
+                             final Handler<AsyncResult<OperationResult<Id>>> resultHandler) {
 
         //TODO. Is it enough to use randomuuid or add generate randomUUID
         final String deviceIdValue = deviceId
@@ -119,7 +121,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
 //        TODO validate max devices per tenant.
 
         span.log(String.format("Registering  device [%s]", deviceIdValue));
-        final Map<String, Object> items = new HashMap<>();
+//        final Map<String, Object> items = new HashMap<>();
         final Versioned<Device> newDevice = new Versioned<>(device);
         final DeviceDto newDeviceDto = new DeviceDto(tenantId, deviceIdValue, newDevice.getValue(),
                 newDevice.getVersion(), Instant.now());
@@ -138,7 +140,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                                     Optional.of(newDevice.getVersion())));
                 })
                 .recover(error -> {
-                    if (ifDuplicateKeyError(error)) {
+                    if (MongoDbErrorHandler.ifDuplicateKeyError(error)) {
                         log.error("Device [{}] already exist for tenant [{}]", deviceIdValue, tenantId);
                         TracingHelper.logError(span,
                                 String.format("Device [%s] already exist for tenant [%s]", deviceIdValue, tenantId));
@@ -154,8 +156,9 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                 .setHandler(resultHandler);
     }
 
-    @Override public void readDevice(final String tenantId, final String deviceId, final Span span,
-            final Handler<AsyncResult<OperationResult<Device>>> resultHandler) {
+    @Override
+    public void readDevice(final String tenantId, final String deviceId, final Span span,
+                           final Handler<AsyncResult<OperationResult<Device>>> resultHandler) {
 
         Objects.requireNonNull(tenantId);
         Objects.requireNonNull(deviceId);
@@ -191,9 +194,10 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         return readDevicePromise.future();
     }
 
-    @Override public void updateDevice(final String tenantId, final String deviceId, final Device device,
-            final Optional<String> resourceVersion, final Span span,
-            final Handler<AsyncResult<OperationResult<Id>>> resultHandler) {
+    @Override
+    public void updateDevice(final String tenantId, final String deviceId, final Device device,
+                             final Optional<String> resourceVersion, final Span span,
+                             final Handler<AsyncResult<OperationResult<Id>>> resultHandler) {
 
         Objects.requireNonNull(tenantId);
         Objects.requireNonNull(deviceId);
@@ -205,36 +209,86 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                     .succeededFuture(Result.from(HttpURLConnection.HTTP_FORBIDDEN, OperationResult::empty)));
             return;
         }
-// TODO.
-//        final JsonObject updateDeviceQuery = new MongoDbDocumentBuilder()
-//                .withTenantId(tenantId)
-//                .withDeviceId(deviceId)
-//                .create();
-//        mongoClient.replaceDocuments(DEVICES_COLLECTION, )
+
+        final Versioned<Device> updatedDevice = new Versioned<>(device);
+        final DeviceDto UpdatedDeviceDto = new DeviceDto(tenantId, deviceId, updatedDevice.getValue(),
+                updatedDevice.getVersion(), Instant.now());
+
+        final JsonObject updateDeviceQuery = new MongoDbDocumentBuilder()
+                .withTenantId(tenantId)
+                .withDeviceId(deviceId)
+                .create();
+        final Promise<JsonObject> deviceUpdated = Promise.promise();
+        mongoClient.findOneAndReplace(DEVICES_COLLECTION, updateDeviceQuery, JsonObject.mapFrom(UpdatedDeviceDto), deviceUpdated);
+        deviceUpdated.future().compose(successDeviceUpdated -> {
+
+            log.info("successDeviceUpdated: " + successDeviceUpdated);
+            return Future.succeededFuture(OperationResult.ok(
+                    HttpURLConnection.HTTP_CREATED,
+                    Id.of(deviceId),
+                    Optional.empty(),
+                    Optional.of(updatedDevice.getVersion())));
+
+        })
+                .recover(errorDeleteDevice -> {
+                    final String errorMsg = String.format("device with id [%s] on tenant [%s] could no be updated.", deviceId, tenantId);
+                    log.error(errorMsg);
+                    TracingHelper.logError(span, errorMsg);
+                    return Future.failedFuture(errorMsg);
+                })
+                .setHandler(resultHandler);
     }
 
-    @Override public void deleteDevice(final String tenantId, final String deviceId,
-            final Optional<String> resourceVersion, final Span span,
-            final Handler<AsyncResult<Result<Void>>> resultHandler) {
+    @Override
+    public void deleteDevice(final String tenantId, final String deviceId,
+                             final Optional<String> resourceVersion, final Span span,
+                             final Handler<AsyncResult<Result<Void>>> resultHandler) {
 
-    }
-
-    @Override public void assertRegistration(final String tenantId, final String deviceId,
-            final Handler<AsyncResult<RegistrationResult>> resultHandler) {
-
-    }
-
-    @Override public void assertRegistration(final String tenantId, final String deviceId, final String gatewayId,
-            final Handler<AsyncResult<RegistrationResult>> resultHandler) {
-
-    }
-
-    private boolean ifDuplicateKeyError(final Throwable throwable) {
-        if (throwable instanceof MongoException) {
-            final MongoException mongoException = (MongoException) throwable;
-            return ErrorCategory.fromErrorCode(mongoException.getCode()) == ErrorCategory.DUPLICATE_KEY;
+//        // TODO: check api version
+//        // -> TracingHelper.logError(span, "Resource Version mismatch.");
+//        //                    return Result.from(HttpURLConnection.HTTP_PRECON_FAILED);
+//
+        if (!config.isModificationEnabled()) {
+            final String errorMsg = "Modification is disabled for Device Registration Service";
+            TracingHelper.logError(span, errorMsg);
+            log.info(errorMsg);
+            resultHandler.handle(Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_FORBIDDEN)));
+            return;
         }
-        return false;
+
+        final JsonObject removeDeviceQuery = new MongoDbDocumentBuilder()
+                .withTenantId(tenantId)
+                .withDeviceId(deviceId)
+                .create();
+        final Promise<MongoClientDeleteResult> deleteDevice = Promise.promise();
+        mongoClient.removeDocument(DEVICES_COLLECTION, removeDeviceQuery, deleteDevice);
+        deleteDevice.future().compose(successDeleteDevice -> {
+            if (successDeleteDevice.getRemovedCount() == 1) {
+                log.info(String.format("Device deleted. Device id [%s] on tenant id [%s]", deviceId, tenantId));
+                return Future.succeededFuture(Result.<Void>from(HttpURLConnection.HTTP_NO_CONTENT));
+            } else {
+                return Future.succeededFuture(Result.<Void>from(HttpURLConnection.HTTP_NOT_FOUND));
+            }
+        })
+                .recover(errorDeleteDevice -> {
+                    final String errorMsg = String.format("device with id [%s] on tenant [%s] could no be deleted.", deviceId, tenantId);
+                    log.error(errorMsg);
+                    TracingHelper.logError(span, errorMsg);
+                    return Future.failedFuture(errorMsg);
+                })
+                .setHandler(resultHandler);
+
     }
 
+    @Override
+    public void assertRegistration(final String tenantId, final String deviceId,
+                                   final Handler<AsyncResult<RegistrationResult>> resultHandler) {
+
+    }
+
+    @Override
+    public void assertRegistration(final String tenantId, final String deviceId, final String gatewayId,
+                                   final Handler<AsyncResult<RegistrationResult>> resultHandler) {
+
+    }
 }

@@ -42,7 +42,7 @@ public final class MongoDbCallExecutor {
     /**
      * Creates an instance of the {@link MongoDbCallExecutor}.
      *
-     * @param vertx The Vert.x instance to use.
+     * @param vertx         The Vert.x instance to use.
      * @param mongoDbConfig The mongodb configuration properties to use.
      * @throws NullPointerException if any of the parameters is {@code null}.
      */
@@ -66,13 +66,13 @@ public final class MongoDbCallExecutor {
      * Creates mongodb collection index. Wrapper of {@link #createIndex(String, JsonObject, IndexOptions, Handler)}
      *
      * @param collectionName The name of the collection of documents.
-     * @param keys The keys to be indexed.
-     * @param options The options used to configure index, which is optional.
-     * @return A succeeded Future if the tenant creation is successful, 
-     *         else failed future with the error reason.
+     * @param keys           The keys to be indexed.
+     * @param options        The options used to configure index, which is optional.
+     * @return A succeeded Future if the tenant creation is successful,
+     * else failed future with the error reason.
      */
     public Future<Void> createCollectionIndex(final String collectionName, final JsonObject keys,
-            final IndexOptions options) {
+                                              final IndexOptions options) {
         final Promise<Void> indexCreationPromise = Promise.promise();
         createIndex(collectionName, keys, options, res -> {
             if (res.succeeded()) {
@@ -110,9 +110,9 @@ public final class MongoDbCallExecutor {
     /**
      * Creates mongodb indexes.
      *
-     * @param collectionName The name of the collection of documents.
-     * @param keys The keys to be indexed.
-     * @param options The options used to configure index, which is optional.
+     * @param collectionName       The name of the collection of documents.
+     * @param keys                 The keys to be indexed.
+     * @param options              The options used to configure index, which is optional.
      * @param indexCreationTracker The callback handler.
      */
     private void createIndex(final String collectionName, final JsonObject keys, final IndexOptions options,

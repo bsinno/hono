@@ -21,6 +21,8 @@ import io.vertx.core.Promise;
 import io.vertx.core.Verticle;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.MongoClient;
+import org.eclipse.hono.deviceregistry.mongodb.services.MongoDbBasedCredentialsService;
+import org.eclipse.hono.deviceregistry.mongodb.services.MongoDbBasedRegistrationService;
 import org.eclipse.hono.service.management.Id;
 import org.eclipse.hono.service.management.OperationResult;
 import org.eclipse.hono.service.management.Result;
@@ -147,12 +149,15 @@ public class MongoDbBasedDeviceBackend extends AbstractVerticle
     @Override public void updateDevice(final String tenantId, final String deviceId, final Device device,
             final Optional<String> resourceVersion, final Span span,
             final Handler<AsyncResult<OperationResult<Id>>> resultHandler) {
+        registrationService.updateDevice(tenantId, deviceId, device, resourceVersion, span, resultHandler);
 
     }
 
     @Override public void deleteDevice(final String tenantId, final String deviceId,
             final Optional<String> resourceVersion, final Span span,
             final Handler<AsyncResult<Result<Void>>> resultHandler) {
+        registrationService.deleteDevice(tenantId, deviceId, resourceVersion, span, resultHandler);
+
 
     }
 
