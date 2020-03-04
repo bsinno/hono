@@ -39,6 +39,7 @@ import org.eclipse.hono.service.metric.MetricsTags;
 import org.eclipse.hono.util.Constants;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -289,6 +290,7 @@ public class ApplicationConfig {
      * @return An instance of the helper class {@link MongoDbCallExecutor}.
      */
     @Bean
+    @ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
     public MongoDbCallExecutor mongoDBCallExecutor() {
         return new MongoDbCallExecutor(vertx(), mongoDbConfigProperties());
     }
