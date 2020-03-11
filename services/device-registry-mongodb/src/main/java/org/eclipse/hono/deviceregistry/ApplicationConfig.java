@@ -251,14 +251,14 @@ public class ApplicationConfig {
     }
 
     /**
-     * Gets properties for configuring {@link MongoDbBasedRegistrationService} which implements the <em>Device
-     * Registration</em> API.
+     * Gets properties for configuring {@link MongoDbBasedRegistrationService} which implements
+     * the <em>Device Registration</em> and <em>Device Management Service</em> APIs.
      *
      * @return The properties.
      */
     @Bean
-    @ConfigurationProperties(prefix = "hono.registry.svc")
-    public MongoDbBasedRegistrationConfigProperties serviceProperties() {
+    @ConfigurationProperties(prefix = "hono.device.mongodb")
+    public MongoDbBasedRegistrationConfigProperties deviceRegistrationProperties() {
         return new MongoDbBasedRegistrationConfigProperties();
     }
 

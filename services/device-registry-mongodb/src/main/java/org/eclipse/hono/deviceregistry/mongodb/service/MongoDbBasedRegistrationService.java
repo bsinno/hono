@@ -156,7 +156,35 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                         return Future
                                 .succeededFuture(Result.from(HttpURLConnection.HTTP_FORBIDDEN, OperationResult::empty));
                     } else {
-                        return processCreateDevice(deviceDto, span);
+                        final Promise<String> addDevicePromise = Promise.promise();
+                        mongoClient.insert(getConfig().getCollectionName(), JsonObject.mapFrom(deviceDto),
+                                addDevicePromise);
+                        return addDevicePromise.future()
+                                .compose(success -> Future.succeededFuture(
+                                        OperationResult.ok(
+                                                HttpURLConnection.HTTP_CREATED,
+                                                Id.of(deviceIdValue),
+                                                Optional.empty(),
+                                                Optional.of(deviceDto.getVersion()))))
+                                .recover(error -> {
+                                    if (ifDuplicateKeyError(error)) {
+                                        log.debug("Device [{}] already exists for the tenant [{}]", deviceIdValue,
+                                                tenantId, error);
+                                        TracingHelper.logError(span,
+                                                String.format("Device [%s] already exists for the tenant [%s]",
+                                                        deviceIdValue, tenantId));
+                                        return Future.succeededFuture(
+                                                OperationResult.empty(HttpURLConnection.HTTP_CONFLICT));
+                                    } else {
+                                        log.error("Error adding device [{}] for the tenant [{}]", deviceIdValue,
+                                                tenantId, error);
+                                        TracingHelper.logError(span,
+                                                String.format("Error adding device [%s] for the tenant [%s]",
+                                                        deviceIdValue, tenantId), error);
+                                        return Future.succeededFuture(
+                                                OperationResult.empty(HttpURLConnection.HTTP_INTERNAL_ERROR));
+                                    }
+                                });
                     }
                 });
     }
