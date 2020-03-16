@@ -21,11 +21,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * TODO.
+ * Common abstract wrapper class to wrap device registry entities and add version and timestamp information.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class BaseDto {
+public abstract class BaseDto {
 
     @JsonProperty(value = "version", required = true)
     protected String version;
@@ -34,24 +34,44 @@ public class BaseDto {
     protected Instant updatedOn;
 
     /**
-     * TODO.
+     * Creates dto without values.
      */
     public BaseDto() {
         //Explicit default constructor.
     }
 
+    /**
+     * Gets the version of the dto.
+     *
+     * @return the version or {@code null} if none has been set.
+     */
     public String getVersion() {
         return version;
     }
 
+    /**
+     * Sets the new version.
+     *
+     * @param version the new version.
+     */
     public void setVersion(final String version) {
         this.version = version;
     }
 
+    /**
+     * Gets the timestamp of the last update.
+     *
+     * @return the timestamp or {@code null} if none has been set.
+     */
     public Instant getUpdatedOn() {
         return updatedOn;
     }
 
+    /**
+     * Sets a new timestamp as the new last update time.
+     *
+     * @param updatedOn the timestamp.
+     */
     public void setUpdatedOn(final Instant updatedOn) {
         this.updatedOn = updatedOn;
     }

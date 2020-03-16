@@ -36,6 +36,7 @@ import io.vertx.core.Verticle;
  * and <a href="https://www.eclipse.org/hono/docs/api/credentials/">Credentials API</a>.
  * </p>
  */
+@SuppressWarnings("unused")
 @ComponentScan(basePackages = "org.eclipse.hono.service.auth", excludeFilters = @ComponentScan.Filter(Deprecated.class))
 @ComponentScan(basePackages = "org.eclipse.hono.service.metric", excludeFilters = @ComponentScan.Filter(Deprecated.class))
 @ComponentScan(basePackages = "org.eclipse.hono.deviceregistry", excludeFilters = @ComponentScan.Filter(Deprecated.class))
@@ -53,6 +54,15 @@ public class Application extends AbstractBaseApplication {
      */
     private List<HealthCheckProvider> healthCheckProviders;
 
+    /**
+     * Starts the Device Registry Server.
+     *
+     * @param args command line arguments to pass to the server.
+     */
+    public static void main(final String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+
     @Autowired
     public void setVerticles(final List<Verticle> verticles) {
         this.verticles = verticles;
@@ -68,8 +78,7 @@ public class Application extends AbstractBaseApplication {
 
         return super.deployVerticles().compose(ok -> {
 
-            @SuppressWarnings("rawtypes")
-            final List<Future> futures = new LinkedList<>();
+            @SuppressWarnings("rawtypes") final List<Future> futures = new LinkedList<>();
 
             for (final Verticle verticle : this.verticles) {
                 log.info("Deploying: {}", verticle);
@@ -95,14 +104,5 @@ public class Application extends AbstractBaseApplication {
             this.healthCheckProviders.forEach(this::registerHealthchecks);
             return Future.succeededFuture();
         });
-    }
-
-    /**
-     * Starts the Device Registry Server.
-     *
-     * @param args command line arguments to pass to the server.
-     */
-    public static void main(final String[] args) {
-        SpringApplication.run(Application.class, args);
     }
 }

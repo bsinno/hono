@@ -20,6 +20,7 @@ import org.eclipse.hono.config.ServerConfig;
 import org.eclipse.hono.config.ServiceConfigProperties;
 import org.eclipse.hono.config.VertxProperties;
 import org.eclipse.hono.deviceregistry.mongodb.config.MongoDbBasedRegistrationConfigProperties;
+import org.eclipse.hono.deviceregistry.mongodb.config.MongoDbBasedTenantsConfigProperties;
 import org.eclipse.hono.deviceregistry.mongodb.config.MongoDbConfigProperties;
 import org.eclipse.hono.deviceregistry.mongodb.service.MongoDbBasedRegistrationService;
 import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbCallExecutor;
@@ -27,7 +28,6 @@ import org.eclipse.hono.deviceregistry.service.credentials.AutowiredCredentialsA
 import org.eclipse.hono.deviceregistry.service.credentials.AutowiredCredentialsManagementHttpEndpoint;
 import org.eclipse.hono.deviceregistry.service.device.AutowiredDeviceManagementHttpEndpoint;
 import org.eclipse.hono.deviceregistry.service.device.AutowiredRegistrationAmqpEndpoint;
-import org.eclipse.hono.deviceregistry.service.deviceconnection.MapBasedDeviceConnectionsConfigProperties;
 import org.eclipse.hono.deviceregistry.service.tenant.AutowiredTenantAmqpEndpoint;
 import org.eclipse.hono.deviceregistry.service.tenant.AutowiredTenantManagementHttpEndpoint;
 import org.eclipse.hono.service.HealthCheckServer;
@@ -55,6 +55,7 @@ import io.vertx.core.VertxOptions;
 /**
  * Spring Boot configuration for the mongodb based device registry application.
  */
+@SuppressWarnings("unused")
 @Configuration
 public class ApplicationConfig {
 
@@ -81,6 +82,28 @@ public class ApplicationConfig {
     @Bean
     public VertxProperties vertxProperties() {
         return new VertxProperties();
+    }
+
+    /**
+     * Gets the mongodb config properties.
+     *
+     * @return The mongodb config properties.
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "hono.mongodb")
+    public MongoDbConfigProperties mongoDbConfigProperties() {
+        return new MongoDbConfigProperties();
+    }
+
+    /**
+     * Gets a {@link MongoDbCallExecutor} instance containing helper methods for mongodb interaction.
+     *
+     * @return An instance of the helper class {@link MongoDbCallExecutor}.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
+    public MongoDbCallExecutor mongoDBCallExecutor() {
+        return new MongoDbCallExecutor(vertx(), mongoDbConfigProperties());
     }
 
     /**
@@ -130,8 +153,7 @@ public class ApplicationConfig {
     @Bean
     @ConfigurationProperties(prefix = "hono.registry.amqp")
     public ServiceConfigProperties amqpServerProperties() {
-        final ServiceConfigProperties props = new ServiceConfigProperties();
-        return props;
+        return new ServiceConfigProperties();
     }
 
     /**
@@ -147,7 +169,7 @@ public class ApplicationConfig {
 
     /**
      * Creates a new instance of an AMQP 1.0 protocol handler for Hono's <em>Credentials</em> API.
-     * 
+     *
      * @return The handler.
      */
     @Bean
@@ -187,8 +209,7 @@ public class ApplicationConfig {
     @Bean
     @ConfigurationProperties(prefix = "hono.registry.rest")
     public ServiceConfigProperties httpServerProperties() {
-        final ServiceConfigProperties props = new ServiceConfigProperties();
-        return props;
+        return new ServiceConfigProperties();
     }
 
     /**
@@ -228,29 +249,6 @@ public class ApplicationConfig {
     }
 
     /**
-     * Gets properties for configuring {@code InMemoryDeviceConnectionService} which implements
-     * the <em>Device Connection</em> API.
-     *
-     * @return The properties.
-     */
-    @Bean
-    @ConfigurationProperties(prefix = "hono.device-connection.svc")
-    public MapBasedDeviceConnectionsConfigProperties deviceConnectionsProperties() {
-        return new MapBasedDeviceConnectionsConfigProperties();
-    }
-
-    /**
-     * Gets the mongodb config properties.
-     *
-     * @return The mongodb config properties.
-     */
-    @Bean
-    @ConfigurationProperties(prefix = "hono.mongodb")
-    public MongoDbConfigProperties mongoDbConfigProperties() {
-        return new MongoDbConfigProperties();
-    }
-
-    /**
      * Gets properties for configuring {@link MongoDbBasedRegistrationService} which implements
      * the <em>Device Registration</em> and <em>Device Management Service</em> APIs.
      *
@@ -261,6 +259,29 @@ public class ApplicationConfig {
     public MongoDbBasedRegistrationConfigProperties deviceRegistrationProperties() {
         return new MongoDbBasedRegistrationConfigProperties();
     }
+
+    /**
+     * Gets properties for the hono tenant mongodb service.
+     *
+     * @return The properties.
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "hono.tenant.mongodb")
+    public MongoDbBasedTenantsConfigProperties mongoDbTenantsProperties() {
+        return new MongoDbBasedTenantsConfigProperties();
+    }
+
+    // /**
+    //  * Gets properties for configuring {@code InMemoryDeviceConnectionService} which implements
+    //  * the <em>Device Connection</em> API.
+    //  *
+    //  * @return The properties.
+    //  */
+    // @Bean
+    // @ConfigurationProperties(prefix = "hono.device-connection.svc")
+    // public MapBasedDeviceConnectionsConfigProperties deviceConnectionsProperties() {
+    //     return new MapBasedDeviceConnectionsConfigProperties();
+    // }
 
     /**
      * Customizer for meter registry.
@@ -284,14 +305,4 @@ public class ApplicationConfig {
         return new VertxBasedHealthCheckServer(vertx(), healthCheckConfigProperties());
     }
 
-    /**
-     * Gets a {@link MongoDbCallExecutor} instance containing helper methods for mongodb interaction.
-     *
-     * @return An instance of the helper class {@link MongoDbCallExecutor}.
-     */
-    @Bean
-    @ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
-    public MongoDbCallExecutor mongoDBCallExecutor() {
-        return new MongoDbCallExecutor(vertx(), mongoDbConfigProperties());
-    }
 }

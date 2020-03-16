@@ -17,7 +17,9 @@ package org.eclipse.hono.deviceregistry.mongodb.config;
  * Common configuration properties for Mongodb based implementations of the APIs of Hono's device registry as own server.
  * <p>
  * This class is intended to be used as base class for property classes that configure a specific mongodb based API implementation.
+ * </p>
  */
+@SuppressWarnings("unused")
 public abstract class AbstractMongoDbBasedRegistryConfigProperties {
 
     /**
