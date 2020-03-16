@@ -21,7 +21,7 @@ import org.eclipse.hono.util.RegistryManagementConstants;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * TODO.
+ * A versioned and dated wrapper class for {@link Tenant}.
  */
 public class TenantDto extends BaseDto {
 
@@ -31,17 +31,17 @@ public class TenantDto extends BaseDto {
     private Tenant tenant;
 
     /**
-     * TODO.
+     * Creates a new empty tenant dto.
      */
     public TenantDto() {
         // Explicit default constructor.
     }
 
     /**
-     * @param tenantId The tenant id.
-     * @param version The version of tenant to be sent as request header.
-     * @param tenant The tenant.
-     * @param updatedOn TODO.
+     * @param tenantId  The tenant id.
+     * @param version   The version of tenant to be sent as request header.
+     * @param tenant    The tenant.
+     * @param updatedOn The timestamp of creation.
      */
     public TenantDto(final String tenantId, final String version, final Tenant tenant, final Instant updatedOn) {
         this.tenantId = tenantId;
@@ -50,18 +50,40 @@ public class TenantDto extends BaseDto {
         this.updatedOn = updatedOn;
     }
 
+    /**
+     * Gets the tenant id.
+     *
+     * @return the tenant id or {@code null} if none has been set.
+     */
     public String getTenantId() {
         return tenantId;
     }
 
+    /**
+     * Sets the tenant id.
+     * <p>
+     * Have to be conflict free with present tenants.
+     *
+     * @param tenantId the tenant id.
+     */
     public void setTenantId(final String tenantId) {
         this.tenantId = tenantId;
     }
 
+    /**
+     * Gets the {@link Tenant}.
+     *
+     * @return the tenant or {@code null} if none has been set.
+     */
     public Tenant getTenant() {
         return tenant;
     }
 
+    /**
+     * Sets the {@link Tenant}.
+     *
+     * @param tenant the tenant.
+     */
     public void setTenant(final Tenant tenant) {
         this.tenant = tenant;
     }

@@ -13,7 +13,9 @@
 
 package org.eclipse.hono.deviceregistry.mongodb.utils;
 
+import org.eclipse.hono.util.AuthenticationConstants;
 import org.eclipse.hono.util.RegistrationConstants;
+import org.eclipse.hono.util.RegistryManagementConstants;
 
 import io.vertx.core.json.JsonObject;
 
@@ -43,6 +45,21 @@ public class MongoDbDocumentBuilder {
      */
     public MongoDbDocumentBuilder withDeviceId(final String deviceId) {
         document.put(RegistrationConstants.FIELD_PAYLOAD_DEVICE_ID, deviceId);
+        return this;
+    }
+
+    /**
+     * add nested CA subjectDn property .
+     *
+     * @param entityPropKey key where entity properties are stored. e.g.: "tenant" for the {@link org.eclipse.hono.deviceregistry.mongodb.model.TenantDto}
+     * @param caSubjectDn   certificate Authority subjectDn
+     * @return a reference to this for fluent use.
+     */
+    public MongoDbDocumentBuilder withCa(final String entityPropKey, final String caSubjectDn) {
+        document.put(
+                String.format("%s.%s.%s", entityPropKey, RegistryManagementConstants.FIELD_PAYLOAD_TRUSTED_CA, AuthenticationConstants.FIELD_SUBJECT_DN),
+                new JsonObject().put("$eq", caSubjectDn)
+        );
         return this;
     }
 
