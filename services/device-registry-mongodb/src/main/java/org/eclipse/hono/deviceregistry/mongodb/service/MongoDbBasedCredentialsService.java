@@ -70,7 +70,7 @@ public class MongoDbBasedCredentialsService extends AbstractVerticle
      * @param deviceId the id of the device that is deleted.
      * @param span The active OpenTracing span for this operation.
      * @return A future indicating the outcome of the operation.
-     *         The <em>status</em> will be <em>204 No Content</em> 
+     *         The <em>status</em> will be <em>204 No Content</em>
      *         if the operation completed successfully.
      */
     public Future<Result<Void>> removeCredentials(final String tenantId, final String deviceId, final Span span) {

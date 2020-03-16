@@ -28,6 +28,7 @@ import org.eclipse.hono.deviceregistry.service.credentials.AutowiredCredentialsA
 import org.eclipse.hono.deviceregistry.service.credentials.AutowiredCredentialsManagementHttpEndpoint;
 import org.eclipse.hono.deviceregistry.service.device.AutowiredDeviceManagementHttpEndpoint;
 import org.eclipse.hono.deviceregistry.service.device.AutowiredRegistrationAmqpEndpoint;
+import org.eclipse.hono.deviceregistry.service.deviceconnection.MapBasedDeviceConnectionsConfigProperties;
 import org.eclipse.hono.deviceregistry.service.tenant.AutowiredTenantAmqpEndpoint;
 import org.eclipse.hono.deviceregistry.service.tenant.AutowiredTenantManagementHttpEndpoint;
 import org.eclipse.hono.service.HealthCheckServer;
@@ -271,17 +272,17 @@ public class ApplicationConfig {
         return new MongoDbBasedTenantsConfigProperties();
     }
 
-    // /**
-    //  * Gets properties for configuring {@code InMemoryDeviceConnectionService} which implements
-    //  * the <em>Device Connection</em> API.
-    //  *
-    //  * @return The properties.
-    //  */
-    // @Bean
-    // @ConfigurationProperties(prefix = "hono.device-connection.svc")
-    // public MapBasedDeviceConnectionsConfigProperties deviceConnectionsProperties() {
-    //     return new MapBasedDeviceConnectionsConfigProperties();
-    // }
+    /**
+     * Gets properties for configuring {@code InMemoryDeviceConnectionService} which implements
+     * the <em>Device Connection</em> API.
+     *
+     * @return The properties.
+     */
+    @Bean
+    @ConfigurationProperties(prefix = "hono.device-connection.svc")
+    public MapBasedDeviceConnectionsConfigProperties deviceConnectionsProperties() {
+        return new MapBasedDeviceConnectionsConfigProperties();
+    }
 
     /**
      * Customizer for meter registry.
