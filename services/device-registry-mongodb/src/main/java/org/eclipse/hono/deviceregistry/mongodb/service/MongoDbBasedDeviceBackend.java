@@ -52,7 +52,7 @@ import io.vertx.core.json.JsonObject;
  */
 @Repository
 @Qualifier("backend")
-@ConditionalOnProperty(name = "hono.app.type", havingValue = "file", matchIfMissing = true)
+@ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
 public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceBackend {
 
     private final MongoDbBasedRegistrationService registrationService;
@@ -60,9 +60,9 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     /**
      * Create a new instance.
-     * 
+     *
      * @param registrationService an implementation of registration service.
-     * @param credentialsService an implementation of credentials service.
+     * @param credentialsService  an implementation of credentials service.
      */
     @Autowired
     public MongoDbBasedDeviceBackend(
@@ -81,7 +81,7 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     @Override
     public Future<RegistrationResult> assertRegistration(final String tenantId, final String deviceId,
-            final String gatewayId) {
+                                                         final String gatewayId) {
         return registrationService.assertRegistration(tenantId, deviceId, gatewayId);
     }
 
@@ -92,8 +92,8 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     @Override
     public Future<Result<Void>> deleteDevice(final String tenantId, final String deviceId,
-            final Optional<String> resourceVersion,
-            final Span span) {
+                                             final Optional<String> resourceVersion,
+                                             final Span span) {
 
         return registrationService.deleteDevice(tenantId, deviceId, resourceVersion, span)
                 .compose(result -> {
@@ -134,7 +134,7 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     @Override
     public Future<OperationResult<Id>> updateDevice(final String tenantId, final String deviceId, final Device device,
-            final Optional<String> resourceVersion, final Span span) {
+                                                    final Optional<String> resourceVersion, final Span span) {
         return registrationService.updateDevice(tenantId, deviceId, device, resourceVersion, span);
     }
 
@@ -142,25 +142,25 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     @Override
     public final Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
-            final String authId) {
+                                                           final String authId) {
         return credentialsService.get(tenantId, type, authId);
     }
 
     @Override
     public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type, final String authId,
-            final Span span) {
+                                                     final Span span) {
         return credentialsService.get(tenantId, type, authId, span);
     }
 
     @Override
     public final Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
-            final String authId, final JsonObject clientContext) {
+                                                           final String authId, final JsonObject clientContext) {
         return get(tenantId, type, authId, clientContext, NoopSpan.INSTANCE);
     }
 
     @Override
-    public  Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type, final String authId, final JsonObject clientContext,
-            final Span span) {
+    public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type, final String authId, final JsonObject clientContext,
+                                                     final Span span) {
         return credentialsService.get(tenantId, type, authId, clientContext, span)
                 .compose(result -> {
                     if (result.getStatus() == HttpURLConnection.HTTP_NOT_FOUND
@@ -175,8 +175,8 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
      * Parses certificate, provisions device and returns the new credentials.
      */
     private Future<CredentialsResult<JsonObject>> provisionDevice(final String tenantId, final String authId,
-            final JsonObject clientContext,
-            final Span span) {
+                                                                  final JsonObject clientContext,
+                                                                  final Span span) {
 
         final X509Certificate cert;
         try {
@@ -205,7 +205,7 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
     }
 
     private Future<CredentialsResult<JsonObject>> getNewCredentials(final String tenantId, final String authId,
-            final Span span) {
+                                                                    final Span span) {
 
         return credentialsService.get(tenantId, CredentialsConstants.SECRETS_TYPE_X509_CERT, authId, span)
                 .map(r -> r.isOk() ? CredentialsResult.from(HttpURLConnection.HTTP_CREATED, r.getPayload()) : r);
@@ -223,14 +223,14 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     @Override
     public Future<OperationResult<Void>> updateCredentials(final String tenantId, final String deviceId,
-            final List<CommonCredential> credentials, final Optional<String> resourceVersion,
-            final Span span) {
+                                                           final List<CommonCredential> credentials, final Optional<String> resourceVersion,
+                                                           final Span span) {
         return credentialsService.updateCredentials(tenantId, deviceId, credentials, resourceVersion, span);
     }
 
     @Override
     public Future<OperationResult<List<CommonCredential>>> readCredentials(final String tenantId, final String deviceId,
-            final Span span) {
+                                                                           final Span span) {
 
         return credentialsService.readCredentials(tenantId, deviceId, span)
                 .compose(result -> {
@@ -254,7 +254,7 @@ public class MongoDbBasedDeviceBackend implements AutoProvisioningEnabledDeviceB
 
     /**
      * Creator for {@link ToStringHelper}.
-     * 
+     *
      * @return A new instance for this instance.
      */
     protected ToStringHelper toStringHelper() {

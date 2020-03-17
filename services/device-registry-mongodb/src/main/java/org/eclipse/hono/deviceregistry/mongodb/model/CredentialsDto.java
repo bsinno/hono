@@ -21,7 +21,7 @@ import org.eclipse.hono.util.RegistryManagementConstants;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * TODO.
+ * A versioned and dated wrapper class for {@link CommonCredential}.
  */
 public class CredentialsDto extends BaseDto {
 
@@ -29,16 +29,26 @@ public class CredentialsDto extends BaseDto {
     private List<CommonCredential> credentials;
 
     /**
-     * TODO.
+     * Creates a new empty credential dto.
      */
     public CredentialsDto() {
         //Explicit default constructor.
     }
 
+    /**
+     * Gets a list of {@link CommonCredential}.
+     *
+     * @return the credentials
+     */
     public List<CommonCredential> getCredentials() {
         return credentials;
     }
 
+    /**
+     * Sets a list of {@link CommonCredential}.
+     *
+     * @param credentials the credentials
+     */
     public void setCredentials(final List<CommonCredential> credentials) {
         this.credentials = credentials;
     }

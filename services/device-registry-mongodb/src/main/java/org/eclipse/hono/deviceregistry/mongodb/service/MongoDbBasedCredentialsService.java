@@ -30,6 +30,7 @@ import org.springframework.stereotype.Component;
 import io.opentracing.Span;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -37,41 +38,46 @@ import io.vertx.core.json.JsonObject;
  */
 @Component
 @Qualifier("serviceImpl")
-@ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb", matchIfMissing = true)
+@ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
 public class MongoDbBasedCredentialsService extends AbstractVerticle
         implements CredentialsManagementService, CredentialsService {
 
-    @Override public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
-            final String authId, final Span span) {
+    @Override
+    public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
+                                                     final String authId, final Span span) {
         return null;
     }
 
-    @Override public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
-            final String authId,
-            final JsonObject clientContext, final Span span) {
+    @Override
+    public Future<CredentialsResult<JsonObject>> get(final String tenantId, final String type,
+                                                     final String authId,
+                                                     final JsonObject clientContext, final Span span) {
         return null;
     }
 
-    @Override public Future<OperationResult<Void>> updateCredentials(final String tenantId, final String deviceId,
-            final List<CommonCredential> credentials, final Optional<String> resourceVersion, final Span span) {
+    @Override
+    public Future<OperationResult<Void>> updateCredentials(final String tenantId, final String deviceId,
+                                                           final List<CommonCredential> credentials, final Optional<String> resourceVersion, final Span span) {
         return Future.succeededFuture(
                 OperationResult.ok(HttpURLConnection.HTTP_NO_CONTENT, null, Optional.empty(), Optional.empty()));
     }
 
-    @Override public Future<OperationResult<List<CommonCredential>>> readCredentials(final String tenantId,
-            final String deviceId,
-            final Span span) {
+    @Override
+    public Future<OperationResult<List<CommonCredential>>> readCredentials(final String tenantId,
+                                                                           final String deviceId,
+                                                                           final Span span) {
         return null;
     }
 
     /**
      * Remove all the credentials for the given device ID.
+     *
      * @param tenantId the Id of the tenant which the device belongs to.
      * @param deviceId the id of the device that is deleted.
-     * @param span The active OpenTracing span for this operation.
+     * @param span     The active OpenTracing span for this operation.
      * @return A future indicating the outcome of the operation.
-     *         The <em>status</em> will be <em>204 No Content</em>
-     *         if the operation completed successfully.
+     * The <em>status</em> will be <em>204 No Content</em>
+     * if the operation completed successfully.
      */
     public Future<Result<Void>> removeCredentials(final String tenantId, final String deviceId, final Span span) {
         Objects.requireNonNull(tenantId);
@@ -79,5 +85,18 @@ public class MongoDbBasedCredentialsService extends AbstractVerticle
 
         // TODO
         return Future.succeededFuture(Result.from(HttpURLConnection.HTTP_NO_CONTENT));
+    }
+
+    @Override
+    public void start(final Promise<Void> startPromise) throws Exception {
+
+        startPromise.complete();
+
+    }
+
+    @Override
+    public void stop(final Promise<Void> stopPromise) throws Exception {
+        stopPromise.complete();
+
     }
 }

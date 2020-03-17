@@ -22,6 +22,8 @@ import org.eclipse.hono.deviceregistry.mongodb.config.MongoDbBasedRegistrationCo
 import org.eclipse.hono.deviceregistry.mongodb.model.DeviceDto;
 import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbCallExecutor;
 import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbDocumentBuilder;
+import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbErrorHandler;
+import org.eclipse.hono.deviceregistry.mongodb.utils.MongoDbServiceUtils;
 import org.eclipse.hono.deviceregistry.util.DeviceRegistryUtils;
 import org.eclipse.hono.deviceregistry.util.Versioned;
 import org.eclipse.hono.service.management.Id;
@@ -42,9 +44,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import com.mongodb.ErrorCategory;
-import com.mongodb.MongoException;
-
 import io.opentracing.Span;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -54,22 +53,21 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.mongo.IndexOptions;
 import io.vertx.ext.mongo.MongoClient;
 import io.vertx.ext.mongo.MongoClientDeleteResult;
-import io.vertx.ext.mongo.MongoClientUpdateResult;
 
 /**
  * TODO.
  */
+@SuppressWarnings("unused")
 @Component
 @Qualifier("serviceImpl")
-@ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb", matchIfMissing = true)
+@ConditionalOnProperty(name = "hono.app.type", havingValue = "mongodb")
 public class MongoDbBasedRegistrationService extends AbstractVerticle
         implements DeviceManagementService, RegistrationService {
 
     private static final Logger log = LoggerFactory.getLogger(MongoDbBasedRegistrationService.class);
     private MongoClient mongoClient;
-    private MongoDbBasedRegistrationConfigProperties config;
     private MongoDbCallExecutor mongoDbCallExecutor;
-
+    private MongoDbBasedRegistrationConfigProperties config;
     /**
      * Registration service, based on {@link AbstractRegistrationService}.
      * <p>
@@ -101,13 +99,13 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         this.mongoClient = this.mongoDbCallExecutor.getMongoClient();
     }
 
+    public MongoDbBasedRegistrationConfigProperties getConfig() {
+        return config;
+    }
+
     @Autowired
     public void setConfig(final MongoDbBasedRegistrationConfigProperties config) {
         this.config = config;
-    }
-
-    public MongoDbBasedRegistrationConfigProperties getConfig() {
-        return config;
     }
 
     @Override
@@ -135,7 +133,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
 
     @Override
     public Future<OperationResult<Id>> createDevice(final String tenantId, final Optional<String> deviceId,
-            final Device device, final Span span) {
+                                                    final Device device, final Span span) {
 
         Objects.requireNonNull(tenantId);
         Objects.requireNonNull(deviceId);
@@ -167,7 +165,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                                                 Optional.empty(),
                                                 Optional.of(deviceDto.getVersion()))))
                                 .recover(error -> {
-                                    if (ifDuplicateKeyError(error)) {
+                                    if (MongoDbErrorHandler.ifDuplicateKeyError(error)) {
                                         log.debug("Device [{}] already exists for the tenant [{}]", deviceIdValue,
                                                 tenantId, error);
                                         TracingHelper.logError(span,
@@ -200,7 +198,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
 
     @Override
     public Future<OperationResult<Id>> updateDevice(final String tenantId, final String deviceId, final Device device,
-            final Optional<String> resourceVersion, final Span span) {
+                                                    final Optional<String> resourceVersion, final Span span) {
 
         Objects.requireNonNull(tenantId);
         Objects.requireNonNull(deviceId);
@@ -215,12 +213,12 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         final DeviceDto UpdatedDeviceDto = new DeviceDto(tenantId, deviceId, updatedDevice.getValue(),
                 updatedDevice.getVersion(), Instant.now());
 
-        return ProcessUpdateDevice(tenantId, deviceId, UpdatedDeviceDto, span);
+        return ProcessUpdateDevice(tenantId, deviceId, UpdatedDeviceDto, resourceVersion, span);
     }
 
     @Override
     public Future<Result<Void>> deleteDevice(final String tenantId, final String deviceId,
-            final Optional<String> resourceVersion, final Span span) {
+                                             final Optional<String> resourceVersion, final Span span) {
 
         if (!config.isModificationEnabled()) {
             final String errorMsg = "Modification is disabled for Device Registration Service";
@@ -241,8 +239,39 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
 
     @Override
     public Future<RegistrationResult> assertRegistration(final String tenantId, final String deviceId,
-            final String gatewayId) {
+                                                         final String gatewayId) {
         return registrationService.assertRegistration(tenantId, deviceId, gatewayId);
+    }
+
+    private Future<OperationResult<Device>> processReadDevice(final String tenantId, final String deviceId,
+                                                              final Span span) {
+        return findDevice(tenantId, deviceId, span)
+                .compose(deviceDto -> Optional.ofNullable(deviceDto)
+                        .map(ok -> Future.succeededFuture(
+                                OperationResult.ok(
+                                        HttpURLConnection.HTTP_OK,
+                                        deviceDto.getDevice(),
+                                        Optional.ofNullable(
+                                                DeviceRegistryUtils.getCacheDirective(getConfig().getCacheMaxAge())),
+                                        Optional.ofNullable(deviceDto.getVersion()))))
+                        .orElseGet(() -> {
+                            log.debug("Device [{}] not found.", deviceId);
+                            TracingHelper.logError(span, String.format("Device [%s] not found.", deviceId));
+                            return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_NOT_FOUND));
+                        }))
+                .recover(error -> {
+                    log.error("Error retrieving device [{}]", deviceId, error);
+                    TracingHelper.logError(span, String.format("Error retrieving device [%s].", deviceId), error);
+                    return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_INTERNAL_ERROR));
+                });
+    }
+
+    private Future<RegistrationResult> getDevice(final String tenantId, final String deviceId, final Span span) {
+
+        return processReadDevice(tenantId, deviceId, span)
+                .compose(result -> Future.succeededFuture(RegistrationResult.from(result.getStatus(),
+                        convertDevice(deviceId, result.getPayload()), result.getCacheDirective().orElse(null))));
+
     }
 
     private JsonObject convertDevice(final String deviceId, final Device payload) {
@@ -275,22 +304,6 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                         }));
     }
 
-    private Future<RegistrationResult> getDevice(final String tenantId, final String deviceId, final Span span) {
-
-        return processReadDevice(tenantId, deviceId, span)
-                .compose(result -> Future.succeededFuture(RegistrationResult.from(result.getStatus(),
-                        convertDevice(deviceId, result.getPayload()), result.getCacheDirective().orElse(null))));
-
-    }
-
-    private boolean ifDuplicateKeyError(final Throwable throwable) {
-        if (throwable instanceof MongoException) {
-            final MongoException mongoException = (MongoException) throwable;
-            return ErrorCategory.fromErrorCode(mongoException.getCode()) == ErrorCategory.DUPLICATE_KEY;
-        }
-        return false;
-    }
-
     private Future<OperationResult<Id>> processCreateDevice(final DeviceDto device, final Span span) {
         final Promise<String> addDevicePromise = Promise.promise();
         mongoClient.insert(getConfig().getCollectionName(), JsonObject.mapFrom(device), addDevicePromise);
@@ -301,7 +314,7 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                         Optional.empty(),
                         Optional.of(device.getVersion())))
                 .recover(error -> {
-                    if (ifDuplicateKeyError(error)) {
+                    if (MongoDbErrorHandler.ifDuplicateKeyError(error)) {
                         log.debug("Device [{}] already exists for the tenant [{}]", device.getDeviceId(),
                                 device.getTenantId(), error);
                         TracingHelper.logError(span, String.format("Device [%s] already exists for the tenant [%s]",
@@ -328,9 +341,9 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
         return deleteDevicePromise.future()
                 .compose(successDeleteDevice -> {
                     if (successDeleteDevice.getRemovedCount() == 1) {
-                        return Future.succeededFuture(Result.<Void> from(HttpURLConnection.HTTP_NO_CONTENT));
+                        return Future.succeededFuture(Result.<Void>from(HttpURLConnection.HTTP_NO_CONTENT));
                     } else {
-                        return Future.succeededFuture(Result.<Void> from(HttpURLConnection.HTTP_NOT_FOUND));
+                        return Future.succeededFuture(Result.<Void>from(HttpURLConnection.HTTP_NOT_FOUND));
                     }
                 })
                 .recover(errorDeleteDevice -> {
@@ -342,44 +355,47 @@ public class MongoDbBasedRegistrationService extends AbstractVerticle
                 });
     }
 
-    private Future<OperationResult<Device>> processReadDevice(final String tenantId, final String deviceId,
-            final Span span) {
-        return findDevice(tenantId, deviceId, span)
-                .compose(deviceDto -> Optional.ofNullable(deviceDto)
-                        .map(ok -> Future.succeededFuture(
-                                OperationResult.ok(
-                                        HttpURLConnection.HTTP_OK,
-                                        deviceDto.getDevice(),
-                                        Optional.ofNullable(
-                                                DeviceRegistryUtils.getCacheDirective(getConfig().getCacheMaxAge())),
-                                        Optional.ofNullable(deviceDto.getVersion()))))
-                        .orElseGet(() -> {
-                            TracingHelper.logError(span, String.format("Device [%s] not found.", deviceId));
-                            return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_NOT_FOUND));
-                        }));
-    }
-
     private Future<OperationResult<Id>> ProcessUpdateDevice(final String tenantId, final String deviceId,
-            final DeviceDto device,
-            final Span span) {
-        final JsonObject updateDeviceQuery = new MongoDbDocumentBuilder()
+                                                            final DeviceDto device,
+                                                            final Optional<String> resourceVersion,
+                                                            final Span span) {
+
+        final Promise<JsonObject> deviceRead = Promise.promise();
+        final JsonObject deviceQuery = new MongoDbDocumentBuilder()
                 .withTenantId(tenantId)
                 .withDeviceId(deviceId)
                 .create();
-        final Promise<MongoClientUpdateResult> updateDevicePromise = Promise.promise();
-        mongoClient.updateCollection(getConfig().getCollectionName(), updateDeviceQuery,
-                JsonObject.mapFrom(device), updateDevicePromise);
-        return updateDevicePromise.future()
-                .map(updateResult -> {
-                    if (updateResult.getDocMatched() == 0) {
-                        return OperationResult.empty(HttpURLConnection.HTTP_NOT_FOUND);
-                    } else {
-                        return OperationResult.ok(
-                                HttpURLConnection.HTTP_CREATED,
-                                Id.of(deviceId),
-                                Optional.empty(),
-                                Optional.of(device.getVersion()));
+        mongoClient.findOne(getConfig().getCollectionName(), deviceQuery, new JsonObject(), deviceRead);
+        return deviceRead.future()
+                .compose(successDeviceRead -> {
+                    if (successDeviceRead == null || successDeviceRead.size() == 0) {
+                        TracingHelper.logError(span, "Device not found.");
+                        return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_NOT_FOUND));
                     }
+                    final DeviceDto currentTenantDto = successDeviceRead.mapTo(DeviceDto.class);
+
+                    if (currentTenantDto.getVersion() == null) {
+                        TracingHelper.logError(span, "Device format invalid.");
+                        return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_INTERNAL_ERROR));
+                    }
+                    if (resourceVersion != null && resourceVersion.isPresent() && MongoDbServiceUtils.isVersionDifferent(resourceVersion, currentTenantDto.getVersion())) {
+                        TracingHelper.logError(span, "Resource Version mismatch.");
+                        return Future.succeededFuture(OperationResult.empty(HttpURLConnection.HTTP_PRECON_FAILED));
+                    }
+
+//                    final Versioned<Device> updatedDevice = new Versioned<DeviceDto>(device);
+//                    final DeviceDto updatedDeviceDto = new DeviceDto(tenantId, deviceId, updatedDevice.getValue(), updatedDevice.getVersion(), Instant.now());
+                    final JsonObject newTenantDtoJson = JsonObject.mapFrom(device);
+
+                    final Promise<JsonObject> tenantUpdated = Promise.promise();
+                    mongoClient.findOneAndReplace(getConfig().getCollectionName(), deviceQuery, newTenantDtoJson, tenantUpdated);
+                    return tenantUpdated.future().compose(successTenantUpdated -> Future.succeededFuture(OperationResult.ok(
+                            HttpURLConnection.HTTP_NO_CONTENT,
+                            Id.of(deviceId),
+                            Optional.empty(),
+                            Optional.of(device.getVersion())
+                    )));
+
                 });
     }
 

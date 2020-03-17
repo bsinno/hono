@@ -21,8 +21,14 @@ public final class MongoDbBasedRegistrationConfigProperties extends AbstractMong
      * The default number of devices that can be registered for each tenant.
      */
     public static final int DEFAULT_MAX_DEVICES_PER_TENANT = 100;
+    /**
+     * Default name of mongodb tenant collection.
+     */
     private static final String DEFAULT_DEVICE_COLLECTION_NAME = "devices";
 
+    /**
+     * Sets the default.
+     */
     private int maxDevicesPerTenant = DEFAULT_MAX_DEVICES_PER_TENANT;
 
     /**
