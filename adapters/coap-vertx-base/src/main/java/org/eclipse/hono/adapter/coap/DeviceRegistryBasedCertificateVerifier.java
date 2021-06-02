@@ -14,6 +14,7 @@
 package org.eclipse.hono.adapter.coap;
 
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.security.cert.CertPath;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -31,7 +32,6 @@ import org.eclipse.californium.scandium.dtls.CertificateMessage;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.CertificateVerificationResult;
 import org.eclipse.californium.scandium.dtls.ConnectionId;
-import org.eclipse.californium.scandium.dtls.DTLSSession;
 import org.eclipse.californium.scandium.dtls.HandshakeException;
 import org.eclipse.californium.scandium.dtls.HandshakeResultHandler;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
@@ -153,8 +153,7 @@ public class DeviceRegistryBasedCertificateVerifier implements NewAdvancedCertif
      */
     private void validateCertificateAndLoadDevice(
             final ConnectionId cid,
-            final CertPath certPath,
-            final DTLSSession session) {
+            final CertPath certPath) {
 
         LOG.debug("validating client's X.509 certificate");
         final Span span = tracer.buildSpan("validate client certificate")
@@ -171,7 +170,7 @@ public class DeviceRegistryBasedCertificateVerifier implements NewAdvancedCertif
                     TracingHelper.logError(span, "could not validate X509 for device", t);
                     LOG.debug("error validating X509", t);
                     final AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
-                            AlertDescription.BAD_CERTIFICATE, session.getPeer());
+                            AlertDescription.BAD_CERTIFICATE);
                     return new CertificateVerificationResult(cid,
                             new HandshakeException("error validating X509", alert), null);
                 })
@@ -198,7 +197,7 @@ public class DeviceRegistryBasedCertificateVerifier implements NewAdvancedCertif
     }
 
     @Override
-    public List<CertificateType> getSupportedCertificateType() {
+    public List<CertificateType> getSupportedCertificateTypes() {
         return SUPPORTED_TYPES;
     }
 
@@ -206,36 +205,33 @@ public class DeviceRegistryBasedCertificateVerifier implements NewAdvancedCertif
     public CertificateVerificationResult verifyCertificate(
             final ConnectionId cid,
             final ServerNames serverName,
-            final Boolean clientUsage,
-            final boolean truncateCertificatePath,
-            final CertificateMessage message,
-            final DTLSSession session) {
+            final InetSocketAddress remotePeer,
+            final boolean clientUsage,
+            final boolean truncateCertificatePath, final CertificateMessage message) {
 
         try {
             final CertPath certChain = message.getCertificateChain();
             if (certChain == null) {
                 final AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
-                        AlertDescription.BAD_CERTIFICATE, session.getPeer());
+                        AlertDescription.BAD_CERTIFICATE);
                 throw new HandshakeException("RPK not supported", alert);
             }
             final List<? extends Certificate> list = certChain.getCertificates();
             final int pathSize = list.size();
             if (pathSize < 1) {
                 final AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
-                        AlertDescription.BAD_CERTIFICATE, session.getPeer());
+                        AlertDescription.BAD_CERTIFICATE);
                 throw new HandshakeException("client certificate chain must not be empty", alert);
             }
-            if (clientUsage != null) {
-                final Certificate certificate = list.get(0);
-                if (certificate instanceof X509Certificate) {
-                    if (!CertPathUtil.canBeUsedForAuthentication((X509Certificate) certificate, clientUsage)) {
-                        final AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
-                                AlertDescription.BAD_CERTIFICATE, session.getPeer());
-                        throw new HandshakeException("certificate cannot be used for client authentication", alert);
-                    }
+            final Certificate certificate = list.get(0);
+            if (certificate instanceof X509Certificate) {
+                if (!CertPathUtil.canBeUsedForAuthentication((X509Certificate) certificate, clientUsage)) {
+                    final AlertMessage alert = new AlertMessage(AlertLevel.FATAL,
+                            AlertDescription.BAD_CERTIFICATE);
+                    throw new HandshakeException("certificate cannot be used for client authentication", alert);
                 }
             }
-            adapter.runOnContext((v) -> validateCertificateAndLoadDevice(cid, certChain, session));
+            adapter.runOnContext((v) -> validateCertificateAndLoadDevice(cid, certChain));
             return null;
         } catch (HandshakeException e) {
             LOG.debug("certificate validation failed", e);

@@ -57,6 +57,7 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.CertificateType;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.eclipse.hono.application.client.DownstreamMessage;
 import org.eclipse.hono.application.client.MessageConsumer;
@@ -220,7 +221,7 @@ public abstract class CoapTestBase {
     protected CoapClient getCoapsClient(final KeyLoader keyLoader) {
 
         final DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
-        dtlsConfig.setIdentity(keyLoader.getPrivateKey(), keyLoader.getCertificateChain(), CertificateType.X_509);
+        dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(keyLoader.getPrivateKey(), keyLoader.getCertificateChain(), CertificateType.X_509));
         dtlsConfig.setAdvancedCertificateVerifier(StaticNewAdvancedCertificateVerifier.builder().setTrustAllCertificates().build());
         return getCoapsClient(dtlsConfig);
     }

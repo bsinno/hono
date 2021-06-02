@@ -35,6 +35,7 @@ import org.eclipse.californium.scandium.auth.ApplicationLevelInfoSupplier;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.dtls.pskstore.AdvancedPskStore;
 import org.eclipse.californium.scandium.dtls.x509.NewAdvancedCertificateVerifier;
+import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.hono.adapter.coap.CoapAdapterProperties;
 import org.eclipse.hono.adapter.coap.CoapEndpointFactory;
 import org.eclipse.hono.adapter.coap.DeviceInfoSupplier;
@@ -310,7 +311,7 @@ public class ConfigBasedCoapEndpointFactory implements CoapEndpointFactory {
 
         final DtlsConnectorConfig.Builder dtlsConfig = new DtlsConnectorConfig.Builder();
         // prevent session resumption
-        dtlsConfig.setNoServerSessionId(true);
+        dtlsConfig.setUseServerSessionId(false);
         dtlsConfig.setServerOnly(true);
         dtlsConfig.setRecommendedCipherSuitesOnly(true);
         dtlsConfig.setClientAuthenticationRequired(true);
@@ -358,7 +359,7 @@ public class ConfigBasedCoapEndpointFactory implements CoapEndpointFactory {
                 // Californium's cipher suites support ECC based keys only
                 LOG.info("using private key [{}] and certificate [{}] as server identity",
                         config.getKeyPath(), config.getCertPath());
-                dtlsConfig.setIdentity(pk, certChain);
+                dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(pk, certChain));
                 Optional.ofNullable(certificateVerifier).ifPresent(dtlsConfig::setAdvancedCertificateVerifier);
             } else {
                 LOG.warn("configured key is not ECC based, certificate based cipher suites will be disabled");
