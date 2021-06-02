@@ -207,7 +207,7 @@ public abstract class AbstractVertxBasedCoapAdapter<T extends CoapAdapterPropert
     private void addResources(final CoapServer startingServer) {
         resourcesToAdd.forEach(resource -> {
             log.info("adding resource to CoAP server [name: {}]", resource.getName());
-            startingServer.add(new VertxCoapResource(resource, context));
+            startingServer.add(resource);
         });
         resourcesToAdd.clear();
     }

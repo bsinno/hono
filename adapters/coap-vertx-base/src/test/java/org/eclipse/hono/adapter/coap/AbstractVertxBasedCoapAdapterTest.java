@@ -15,6 +15,8 @@ package org.eclipse.hono.adapter.coap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -27,13 +29,13 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.californium.core.CoapResource;
 import org.eclipse.californium.core.CoapServer;
 import org.eclipse.californium.core.coap.CoAP.Code;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.network.Exchange;
 import org.eclipse.californium.core.network.Exchange.Origin;
-import org.eclipse.californium.core.server.resources.CoapExchange;
+import org.eclipse.californium.core.server.MessageDeliverer;
+import org.eclipse.californium.core.server.ServerMessageDeliverer;
 import org.eclipse.californium.core.server.resources.Resource;
 import org.eclipse.hono.adapter.client.command.CommandConsumer;
 import org.eclipse.hono.adapter.resourcelimits.ResourceLimitChecks;
@@ -46,6 +48,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+import io.opentracing.Tracer.SpanBuilder;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -70,11 +75,20 @@ public class AbstractVertxBasedCoapAdapterTest extends ProtocolAdapterTestSuppor
     private CoapServer server;
     private Handler<Void> startupHandler;
 
+    private Tracer tracer;
+    private Span span;
+    private SpanBuilder spanBuilder;
+
     /**
      * Sets up common fixture.
      */
     @BeforeEach
     public void setup() {
+        span = mock(Span.class);
+        spanBuilder = mock(SpanBuilder.class, RETURNS_SELF);
+        when(spanBuilder.start()).thenReturn(span);
+        tracer = mock(Tracer.class);
+        when(tracer.buildSpan(anyString())).thenReturn(spanBuilder);
 
         startupHandler = VertxMockSupport.mockHandler();
         metrics = mock(CoapAdapterMetrics.class);
@@ -149,10 +163,10 @@ public class AbstractVertxBasedCoapAdapterTest extends ProtocolAdapterTestSuppor
         final Promise<Void> startupTracker = Promise.promise();
         startupTracker.future().onComplete(ctx.succeeding(s -> {
             // THEN the resources have been registered with the server
-            final ArgumentCaptor<VertxCoapResource> resourceCaptor = ArgumentCaptor.forClass(VertxCoapResource.class);
+            final ArgumentCaptor<Resource> resourceCaptor = ArgumentCaptor.forClass(Resource.class);
             ctx.verify(() -> {
                 verify(server).add(resourceCaptor.capture());
-                assertThat(resourceCaptor.getValue().getWrappedResource()).isEqualTo(resource);
+                assertThat(resourceCaptor.getValue()).isEqualTo(resource);
             });
             ctx.completeNow();
         }));
@@ -174,10 +188,10 @@ public class AbstractVertxBasedCoapAdapterTest extends ProtocolAdapterTestSuppor
         givenAnAdapter(properties);
         // with a resource
         final Promise<Void> resourceInvocation = Promise.promise();
-        final Resource resource = new CoapResource("test") {
+        final Resource resource = new TracingSupportingHonoResource( this.adapter, this.tracer, "test") {
 
             @Override
-            public void handleGET(final CoapExchange exchange) {
+            public void handleRequest(final Exchange exchange) {
                 ctx.verify(() -> assertThat(Vertx.currentContext()).isEqualTo(context));
                 resourceInvocation.complete();
             }
@@ -194,9 +208,10 @@ public class AbstractVertxBasedCoapAdapterTest extends ProtocolAdapterTestSuppor
                 // WHEN the resource receives a GET request
                 final Request request = new Request(Code.GET);
                 final Exchange getExchange = new Exchange(request, Origin.REMOTE, mock(Executor.class));
-                final ArgumentCaptor<VertxCoapResource> resourceCaptor = ArgumentCaptor.forClass(VertxCoapResource.class);
+                final ArgumentCaptor<TracingSupportingHonoResource> resourceCaptor = ArgumentCaptor.forClass(TracingSupportingHonoResource.class);
                 verify(server).add(resourceCaptor.capture());
-                resourceCaptor.getValue().handleRequest(getExchange);
+                final MessageDeliverer deliverer = new ServerMessageDeliverer(resourceCaptor.getValue());
+                deliverer.deliverRequest(getExchange);
                 // THEN the resource's handler has been run on the adapter's vert.x event loop
                 return resourceInvocation.future();
             })

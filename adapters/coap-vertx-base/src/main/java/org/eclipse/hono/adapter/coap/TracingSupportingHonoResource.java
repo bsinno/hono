@@ -17,6 +17,7 @@ package org.eclipse.hono.adapter.coap;
 import java.net.HttpURLConnection;
 import java.security.Principal;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.eclipse.californium.core.CoapResource;
@@ -55,6 +56,10 @@ public abstract class TracingSupportingHonoResource extends CoapResource {
 
     private final Tracer tracer;
     private final CoapProtocolAdapter adapter;
+    /**
+     * Executor to handle requests.
+     */
+    private final Executor executor;
 
     /**
      * Creates a new resource that supports tracing of request processing.
@@ -71,6 +76,22 @@ public abstract class TracingSupportingHonoResource extends CoapResource {
         super(resourceName);
         this.adapter = Objects.requireNonNull(adapter);
         this.tracer = Objects.requireNonNull(tracer);
+        this.executor = new Executor() {
+            @Override
+            public void execute(final Runnable command) {
+                adapter.runOnContext(s -> command.run());
+            }
+        };
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Use Vert.x to execute requests.
+     */
+    @Override
+    public Executor getExecutor() {
+        return executor;
     }
 
     /**
